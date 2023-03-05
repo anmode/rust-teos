@@ -1,24 +1,31 @@
 name: Continuous Integration Checks
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
+    name: Build and test
     strategy:
       fail-fast: false
       matrix:
-        platform: [ ubuntu-latest, macos-latest, windows-latest ]
-        toolchain: [ stable ]
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+        toolchain: [stable]
         include:
-           - platform: windows-latest
-             arguments: --workspace --exclude watchtower-plugin
+          - platform: windows-latest
+            arguments: --workspace --exclude watchtower-plugin
 
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.toolchain }} toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v2
         with:
           toolchain: ${{ matrix.toolchain }}
           override: true
@@ -31,19 +38,20 @@ jobs:
           cargo test ${{ matrix.arguments }} --verbose --color always
 
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
       - name: Install Rust stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v2
         with:
           toolchain: stable
           profile: minimal
           components: rustfmt, clippy
       - name: Run rustfmt
         run: |
-          cargo fmt --verbose --check -- --color always
+          cargo fmt --verbose -- --check --color always
       - name: Run clippy
         run: |
           cargo clippy --all-features --all-targets --color always -- --deny warnings

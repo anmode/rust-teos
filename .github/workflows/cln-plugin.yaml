@@ -1,6 +1,12 @@
-name: CI tests for CLN watchtower-plugin
+\name: CI tests for CLN watchtower-plugin
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 env:
   bitcoind_version: 0.20.1
@@ -10,14 +16,15 @@ jobs:
   cache-cln:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-          check-latest: true
       - name: Create CLN cache
         id: cache-cln
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         env:
           cache-name: cache-cln-dev
         with:
@@ -36,12 +43,17 @@ jobs:
   cln-plugin:
     needs: cache-cln
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        rust-version: [1.55.0, stable]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
           python-version: '3.9'
-          check-latest: true
       - name: Install bitcoind
         run: |
           wget https://bitcoincore.org/bin/bitcoin-core-${{ env.bitcoind_version }}/bitcoin-${{ env.bitcoind_version }}-x86_64-linux-gnu.tar.gz
@@ -49,7 +61,7 @@ jobs:
           ln -s $(pwd)/bitcoin-${{ env.bitcoind_version }}/bin/bitcoin* /usr/local/bin
       - name: Load CLN cache
         id: cache-cln
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         env:
           cache-name: cache-cln-dev
         with:
@@ -58,14 +70,16 @@ jobs:
       - name: Link CLN
         run: |
           cd lightning && sudo make install
-      - name: Install teos and the plugin
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust-version }}
+      - name: Install dependencies
         run: |
-          cargo install --locked --path teos 
+          cargo install --locked --path teos
           cargo install --locked --path watchtower-plugin
-      - name: Add test dependencies
-        run: |
-          cd watchtower-plugin/tests
-          pip install --user poetry && poetry install
+          cd watchtower-plugin/tests && pip install --user poetry && poetry install
       - name: Run tests
         run: |
           cd watchtower-plugin/tests
