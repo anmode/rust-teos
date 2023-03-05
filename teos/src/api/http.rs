@@ -27,6 +27,11 @@ pub(crate) struct ApiError {
     error_code: u8,
 }
 
+#[derive(Serialize)]
+struct PingResponse {
+    message: String,
+}
+
 impl reject::Reject for ApiError {}
 
 impl ApiError {
@@ -217,6 +222,17 @@ async fn get_subscription_info(
     Ok(reply::with_status(body, status))
 }
 
+async fn ping(
+    addr: Option<SocketAddr>,
+) -> Result<impl Reply, Rejection> {
+    log::debug!(
+        "Received a ping request from {}",
+        addr.map_or("an unknown address".to_owned(), |a| a.to_string())
+    );
+    let response = PingResponse { message: "pong".to_owned() };
+    Ok(warp::reply::json(&response))
+}
+
 fn router(
     grpc_conn: PublicTowerServicesClient<Channel>,
 ) -> impl Filter<Extract = (impl Reply,), Error = Rejection> + Clone {
@@ -251,10 +267,18 @@ fn router(
         .and(with_grpc(grpc_conn))
         .and_then(get_subscription_info);
 
+    
+    let ping = warp::get()
+        .and(warp::path("ping"))
+        .and(warp::addr::remote())
+        .and_then(ping);
+
+
     register
         .or(add_appointment)
         .or(get_appointment)
         .or(get_subscription_info)
+        .or(ping)
         .recover(handle_rejection)
 }
 
